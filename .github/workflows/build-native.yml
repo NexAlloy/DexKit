@@ -103,7 +103,7 @@ jobs:
         if: ${{ matrix.sys.name != 'linux-musl' }}
         run: |
           chmod +x gradlew
-          ./gradlew :dexkit:cmakeBuild :dexkit:jar :dexkit-android:assembleRelease --console=plain
+          ./gradlew :dexkit:cmakeBuild :dexkit:jar :dexkit-android:assembleRelease :dexkit-android:releaseSourcesJar --console=plain
 
       - name: Collect native library
         run: |
@@ -114,6 +114,7 @@ jobs:
             cp dexkit/build/cmake/main/*/libdexkit.dylib artifacts/
             cp dexkit/build/libs/dexkit.jar artifacts/
             cp dexkit-android/build/outputs/aar/dexkit-android-release.aar artifacts/
+            cp dexkit-android/build/libs/dexkit-android-sources.jar artifacts/
           elif [ "${RUNNER_OS}" = "Windows" ]; then
             cp dexkit/build/cmake/main/*/libdexkit.dll artifacts/
             cp dexkit/build/libs/dexkit.jar artifacts/
@@ -156,6 +157,7 @@ jobs:
         run: |
           cp downloaded-artifacts/dexkit-native-macos/dexkit.jar staging/
           cp downloaded-artifacts/dexkit-native-macos/dexkit-android-release.aar staging/
+          cp downloaded-artifacts/dexkit-native-macos/dexkit-android-sources.jar staging/
 
       - name: Delete individual platform artifacts
         uses: geekyeggo/delete-artifact@v5
@@ -172,3 +174,4 @@ jobs:
             staging/windows
             staging/dexkit.jar
             staging/dexkit-android-release.aar
+            staging/dexkit-android-sources.jar
