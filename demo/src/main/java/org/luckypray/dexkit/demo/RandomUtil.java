@@ -18,4 +18,20 @@ public abstract class RandomUtil {
         int lit16 = value + 30000;
         return lit16 ^ -7;
     }
+
+    public static int sumFive(int a, int b, int c, int d, int e) {
+        return a + b + c + d + e;
+    }
+
+    public static int callSumFive(int a, int b, int c, int d, int e) {
+        return sumFive(a, b, c, d, e);
+    }
+
+    public static int sumSix(int a, int b, int c, int d, int e, int f) {
+        return a + b + c + d + e + f;
+    }
+
+    public static int callSumSix(int a, int b, int c, int d, int e, int f) {
+        return sumSix(a, b, c, d, e, f);
+    }
 }

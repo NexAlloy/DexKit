@@ -133,6 +133,10 @@ table InstructionMeta {
     class_ref: ClassMeta;
     string_value: string;
     literal_value: long;
+    register_count: uint8;
+    registers_packed: long;
+    register_extra: uint16;
+    register_range: bool;
 }
 
 table InstructionMetaArrayHolder {

@@ -1712,7 +1712,11 @@ struct InstructionMeta FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FIELD_REF = 12,
     VT_CLASS_REF = 14,
     VT_STRING_VALUE = 16,
-    VT_LITERAL_VALUE = 18
+    VT_LITERAL_VALUE = 18,
+    VT_REGISTER_COUNT = 20,
+    VT_REGISTERS_PACKED = 22,
+    VT_REGISTER_EXTRA = 24,
+    VT_REGISTER_RANGE = 26
   };
   uint32_t index() const {
     return GetField<uint32_t>(VT_INDEX, 0);
@@ -1738,6 +1742,18 @@ struct InstructionMeta FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t literal_value() const {
     return GetField<int64_t>(VT_LITERAL_VALUE, 0);
   }
+  uint8_t register_count() const {
+    return GetField<uint8_t>(VT_REGISTER_COUNT, 0);
+  }
+  int64_t registers_packed() const {
+    return GetField<int64_t>(VT_REGISTERS_PACKED, 0);
+  }
+  uint16_t register_extra() const {
+    return GetField<uint16_t>(VT_REGISTER_EXTRA, 0);
+  }
+  bool register_range() const {
+    return GetField<uint8_t>(VT_REGISTER_RANGE, 0) != 0;
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_INDEX, 4) &&
@@ -1752,6 +1768,10 @@ struct InstructionMeta FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_STRING_VALUE) &&
            verifier.VerifyString(string_value()) &&
            VerifyField<int64_t>(verifier, VT_LITERAL_VALUE, 8) &&
+           VerifyField<uint8_t>(verifier, VT_REGISTER_COUNT, 1) &&
+           VerifyField<int64_t>(verifier, VT_REGISTERS_PACKED, 8) &&
+           VerifyField<uint16_t>(verifier, VT_REGISTER_EXTRA, 2) &&
+           VerifyField<uint8_t>(verifier, VT_REGISTER_RANGE, 1) &&
            verifier.EndTable();
   }
 };
@@ -1784,6 +1804,18 @@ struct InstructionMetaBuilder {
   void add_literal_value(int64_t literal_value) {
     fbb_.AddElement<int64_t>(InstructionMeta::VT_LITERAL_VALUE, literal_value, 0);
   }
+  void add_register_count(uint8_t register_count) {
+    fbb_.AddElement<uint8_t>(InstructionMeta::VT_REGISTER_COUNT, register_count, 0);
+  }
+  void add_registers_packed(int64_t registers_packed) {
+    fbb_.AddElement<int64_t>(InstructionMeta::VT_REGISTERS_PACKED, registers_packed, 0);
+  }
+  void add_register_extra(uint16_t register_extra) {
+    fbb_.AddElement<uint16_t>(InstructionMeta::VT_REGISTER_EXTRA, register_extra, 0);
+  }
+  void add_register_range(bool register_range) {
+    fbb_.AddElement<uint8_t>(InstructionMeta::VT_REGISTER_RANGE, static_cast<uint8_t>(register_range), 0);
+  }
   explicit InstructionMetaBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -1804,8 +1836,13 @@ inline ::flatbuffers::Offset<InstructionMeta> CreateInstructionMeta(
     ::flatbuffers::Offset<dexkit::schema::FieldMeta> field_ref = 0,
     ::flatbuffers::Offset<dexkit::schema::ClassMeta> class_ref = 0,
     ::flatbuffers::Offset<::flatbuffers::String> string_value = 0,
-    int64_t literal_value = 0) {
+    int64_t literal_value = 0,
+    uint8_t register_count = 0,
+    int64_t registers_packed = 0,
+    uint16_t register_extra = 0,
+    bool register_range = false) {
   InstructionMetaBuilder builder_(_fbb);
+  builder_.add_registers_packed(registers_packed);
   builder_.add_literal_value(literal_value);
   builder_.add_string_value(string_value);
   builder_.add_class_ref(class_ref);
@@ -1813,6 +1850,9 @@ inline ::flatbuffers::Offset<InstructionMeta> CreateInstructionMeta(
   builder_.add_method_ref(method_ref);
   builder_.add_opcode(opcode);
   builder_.add_index(index);
+  builder_.add_register_extra(register_extra);
+  builder_.add_register_range(register_range);
+  builder_.add_register_count(register_count);
   builder_.add_operand_type(operand_type);
   return builder_.Finish();
 }
@@ -1831,7 +1871,11 @@ inline ::flatbuffers::Offset<InstructionMeta> CreateInstructionMetaDirect(
     ::flatbuffers::Offset<dexkit::schema::FieldMeta> field_ref = 0,
     ::flatbuffers::Offset<dexkit::schema::ClassMeta> class_ref = 0,
     const char *string_value = nullptr,
-    int64_t literal_value = 0) {
+    int64_t literal_value = 0,
+    uint8_t register_count = 0,
+    int64_t registers_packed = 0,
+    uint16_t register_extra = 0,
+    bool register_range = false) {
   auto string_value__ = string_value ? _fbb.CreateString(string_value) : 0;
   return dexkit::schema::CreateInstructionMeta(
       _fbb,
@@ -1842,7 +1886,11 @@ inline ::flatbuffers::Offset<InstructionMeta> CreateInstructionMetaDirect(
       field_ref,
       class_ref,
       string_value__,
-      literal_value);
+      literal_value,
+      register_count,
+      registers_packed,
+      register_extra,
+      register_range);
 }
 
 struct InstructionMetaArrayHolder FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

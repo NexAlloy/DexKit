@@ -1341,6 +1341,92 @@ const std::vector<EncodeNumber> &DexItem::GetUsingNumbers(uint32_t method_idx) {
     return *slot.data;
 }
 
+static void PushInstructionRegister(InstructionBean &bean, uint16_t reg) {
+    if (bean.register_count < 4) {
+        bean.registers_packed |= static_cast<uint64_t>(reg) << (bean.register_count * 16);
+    } else {
+        bean.register_extra = reg;
+    }
+    ++bean.register_count;
+}
+
+static void DecodeInstructionRegisters(dex::InstructionFormat format,
+                                       const uint16_t *instruction,
+                                       InstructionBean &bean) {
+    auto first = instruction[0];
+    auto register_a = static_cast<uint16_t>((first >> 8) & 0x0f);
+    auto register_b = static_cast<uint16_t>((first >> 12) & 0x0f);
+    auto register_aa = static_cast<uint16_t>(first >> 8);
+
+    switch (format) {
+        case dex::k11n:
+        case dex::k11x:
+        case dex::k21c:
+        case dex::k21s:
+        case dex::k21t:
+        case dex::k21h:
+        case dex::k31t:
+        case dex::k31c:
+        case dex::k31i:
+        case dex::k51l:
+            PushInstructionRegister(bean, format == dex::k11n ? register_a : register_aa);
+            break;
+        case dex::k12x:
+        case dex::k22s:
+        case dex::k22t:
+        case dex::k22c:
+        case dex::k22cs:
+            PushInstructionRegister(bean, register_a);
+            PushInstructionRegister(bean, register_b);
+            break;
+        case dex::k22x:
+            PushInstructionRegister(bean, register_aa);
+            PushInstructionRegister(bean, instruction[1]);
+            break;
+        case dex::k23x:
+            PushInstructionRegister(bean, register_aa);
+            PushInstructionRegister(bean, instruction[1] & 0xff);
+            PushInstructionRegister(bean, instruction[1] >> 8);
+            break;
+        case dex::k22b:
+            PushInstructionRegister(bean, register_aa);
+            PushInstructionRegister(bean, instruction[1] & 0xff);
+            break;
+        case dex::k32x:
+            PushInstructionRegister(bean, instruction[1]);
+            PushInstructionRegister(bean, instruction[2]);
+            break;
+        case dex::k35c:
+        case dex::k35ms:
+        case dex::k35mi:
+        case dex::k45cc: {
+            auto count = register_b;
+            auto register_list = instruction[2];
+            uint16_t registers[] = {
+                    static_cast<uint16_t>(register_list & 0x0f),
+                    static_cast<uint16_t>((register_list >> 4) & 0x0f),
+                    static_cast<uint16_t>((register_list >> 8) & 0x0f),
+                    static_cast<uint16_t>((register_list >> 12) & 0x0f),
+                    register_a,
+            };
+            for (uint8_t i = 0; i < count; ++i) {
+                PushInstructionRegister(bean, registers[i]);
+            }
+            break;
+        }
+        case dex::k3rc:
+        case dex::k3rms:
+        case dex::k3rmi:
+        case dex::k4rcc:
+            bean.register_count = static_cast<uint8_t>(register_aa);
+            bean.registers_packed = instruction[2];
+            bean.register_range = true;
+            break;
+        default:
+            break;
+    }
+}
+
 std::vector<InstructionBean> DexItem::GetInstructions(uint32_t method_idx) {
     auto code = method_codes[method_idx];
     if (code == nullptr) {
@@ -1359,23 +1445,24 @@ std::vector<InstructionBean> DexItem::GetInstructions(uint32_t method_idx) {
         InstructionBean bean;
         bean.index = ins_index;
         bean.opcode = op;
+        DecodeInstructionRegisters(op_format, p, bean);
 
         if ((op >= 0x6e && op <= 0x72) || (op >= 0x74 && op <= 0x78)) {
             // invoke-kind and invoke-kind/range: method reference
             auto index = ReadShort(ptr);
             bean.operand_type = schema::OperandType::MethodRef;
-            bean.method_ref = GetMethodBean(index);
+            bean.operand_index = index;
         } else if (op >= 0x52 && op <= 0x6d) {
             // iget/iput/sget/sput family: field reference
             auto index = ReadShort(ptr);
             bean.operand_type = schema::OperandType::FieldRef;
-            bean.field_ref = GetFieldBean(index);
+            bean.operand_index = index;
         } else if (op == 0x1c || op == 0x1f || op == 0x20
                    || op == 0x22 || op == 0x23) {
             // const-class, check-cast, instance-of, new-instance, new-array: class/type reference
             auto index = ReadShort(ptr);
             bean.operand_type = schema::OperandType::ClassRef;
-            bean.class_ref = GetClassBean(index);
+            bean.operand_index = index;
         } else if (op == 0x1a) {
             // const-string
             auto index = ReadShort(ptr);

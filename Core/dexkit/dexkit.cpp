@@ -1370,7 +1370,7 @@ DexKit::GetMethodInstructions(int64_t encode_method_id) {
     auto builder = std::make_unique<flatbuffers::FlatBufferBuilder>();
     std::vector<flatbuffers::Offset<schema::InstructionMeta>> offsets;
     for (auto &bean: result) {
-        auto res = bean.CreateInstructionMeta(*builder);
+        auto res = bean.CreateInstructionMeta(*builder, *dex_items[dex_id]);
         builder->Finish(res);
         offsets.emplace_back(res);
     }

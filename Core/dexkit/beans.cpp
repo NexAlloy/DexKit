@@ -19,6 +19,7 @@
 // <https://github.com/LuckyPray/DexKit/blob/master/LICENSE>.
 
 #include "beans.h"
+#include "dex_item.h"
 
 namespace dexkit {
 
@@ -83,7 +84,7 @@ UsingFieldBean::CreateUsingFieldMeta(flatbuffers::FlatBufferBuilder &fbb) const 
 }
 
 flatbuffers::Offset<schema::InstructionMeta>
-InstructionBean::CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb) const {
+InstructionBean::CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb, DexItem &dex_item) const {
     flatbuffers::Offset<schema::MethodMeta> method_offset = 0;
     flatbuffers::Offset<schema::FieldMeta> field_offset = 0;
     flatbuffers::Offset<schema::ClassMeta> class_offset = 0;
@@ -91,13 +92,13 @@ InstructionBean::CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb) cons
 
     switch (this->operand_type) {
         case schema::OperandType::MethodRef:
-            if (method_ref) method_offset = method_ref->CreateMethodMeta(fbb);
+            method_offset = dex_item.GetMethodBean(operand_index).CreateMethodMeta(fbb);
             break;
         case schema::OperandType::FieldRef:
-            if (field_ref) field_offset = field_ref->CreateFieldMeta(fbb);
+            field_offset = dex_item.GetFieldBean(operand_index).CreateFieldMeta(fbb);
             break;
         case schema::OperandType::ClassRef:
-            if (class_ref) class_offset = class_ref->CreateClassMeta(fbb);
+            class_offset = dex_item.GetClassBean(operand_index).CreateClassMeta(fbb);
             break;
         case schema::OperandType::String:
             string_offset = fbb.CreateString(this->string_value);
@@ -115,7 +116,11 @@ InstructionBean::CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb) cons
             field_offset,
             class_offset,
             string_offset,
-            this->literal_value
+            this->literal_value,
+            this->register_count,
+            static_cast<int64_t>(this->registers_packed),
+            this->register_extra,
+            this->register_range
     );
     fbb.Finish(instruction_meta);
     return instruction_meta;

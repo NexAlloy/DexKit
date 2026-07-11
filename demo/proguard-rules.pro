@@ -30,6 +30,10 @@
 }
 -keepclassmembers class org.luckypray.dexkit.demo.RandomUtil {
     public static int getLiteralBinop(int);
+    public static int sumFive(int, int, int, int, int);
+    public static int callSumFive(int, int, int, int, int);
+    public static int sumSix(int, int, int, int, int, int);
+    public static int callSumSix(int, int, int, int, int, int);
 }
 
 -dontwarn javax.lang.model.element.Modifier

@@ -28,6 +28,8 @@
 
 namespace dexkit {
 
+class DexItem;
+
 class ClassBean {
 public:
     uint32_t id = -1;
@@ -88,16 +90,18 @@ class InstructionBean {
 public:
     uint32_t index = 0;
     uint8_t opcode = 0;
+    uint8_t register_count = 0;
+    uint64_t registers_packed = 0;
+    uint16_t register_extra = 0;
+    bool register_range = false;
     schema::OperandType operand_type = schema::OperandType::None;
-    std::optional<MethodBean> method_ref;
-    std::optional<FieldBean> field_ref;
-    std::optional<ClassBean> class_ref;
+    uint32_t operand_index = 0;
     std::string_view string_value;
     int64_t literal_value = 0;
 
 public:
     flatbuffers::Offset<schema::InstructionMeta>
-    CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb) const;
+    CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb, DexItem &dex_item) const;
 };
 
 class AnnotationBean;

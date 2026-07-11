@@ -859,6 +859,7 @@ class UnitTest {
         println("Instructions count: ${instructions.size}")
         instructions.forEach { ins ->
             println("[${ins.index}] op=0x${ins.opcode.toString(16)}" +
+                    (if (ins.registerCount > 0) " registers=${ins.registers}" else "") +
                     (ins.methodRef?.let { " method=${it.descriptor}" } ?: "") +
                     (ins.fieldRef?.let { " field=${it.descriptor}" } ?: "") +
                     (ins.classRef?.let { " class=${it.name}" } ?: "") +
@@ -910,5 +911,32 @@ class UnitTest {
                 "Expected literal for binop/lit opcode 0x${ins.opcode.toString(16)} at index ${ins.index}"
             }
         }
+        assert(res.instructions.any { it.opcode == 0x0f && it.singleRegisterOrNull != null }) {
+            "Expected return instruction with one register"
+        }
+    }
+
+    @Test
+    fun testGetMethodInstructionRegisters() {
+        val fixed = bridge.getMethodData(
+            "Lorg/luckypray/dexkit/demo/RandomUtil;->callSumFive(IIIII)I"
+        )!!.instructions.single { it.opcode == 0x71 }
+        assert(fixed.registerCount == 5) {
+            "Expected five registers for invoke-static, got ${fixed.registers}"
+        }
+        assert(fixed.registers.distinct().size == 5)
+        assert(fixed.methodRef?.name == "sumFive")
+
+        val range = bridge.getMethodData(
+            "Lorg/luckypray/dexkit/demo/RandomUtil;->callSumSix(IIIIII)I"
+        )!!.instructions.single { it.opcode == 0x77 }
+        assert(range.registerCount == 6) {
+            "Expected six registers for invoke-static/range, got ${range.registers}"
+        }
+        assert(range.registers.zipWithNext().all { (current, next) -> next == current + 1 }) {
+            "Expected consecutive range registers, got ${range.registers}"
+        }
+        assert(range.registerOrNull(6) == null)
+        assert(range.methodRef?.name == "sumSix")
     }
 }

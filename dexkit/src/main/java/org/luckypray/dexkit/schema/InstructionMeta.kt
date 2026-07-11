@@ -122,6 +122,62 @@ internal class `-InstructionMeta` : Table() {
             false
         }
     }
+    val registerCount : UByte
+        get() {
+            val o = __offset(20)
+            return if(o != 0) bb.get(o + bb_pos).toUByte() else 0u
+        }
+    fun mutateRegisterCount(registerCount: UByte) : Boolean {
+        val o = __offset(20)
+        return if (o != 0) {
+            bb.put(o + bb_pos, registerCount.toByte())
+            true
+        } else {
+            false
+        }
+    }
+    val registersPacked : Long
+        get() {
+            val o = __offset(22)
+            return if(o != 0) bb.getLong(o + bb_pos) else 0L
+        }
+    fun mutateRegistersPacked(registersPacked: Long) : Boolean {
+        val o = __offset(22)
+        return if (o != 0) {
+            bb.putLong(o + bb_pos, registersPacked)
+            true
+        } else {
+            false
+        }
+    }
+    val registerExtra : UShort
+        get() {
+            val o = __offset(24)
+            return if(o != 0) bb.getShort(o + bb_pos).toUShort() else 0u
+        }
+    fun mutateRegisterExtra(registerExtra: UShort) : Boolean {
+        val o = __offset(24)
+        return if (o != 0) {
+            bb.putShort(o + bb_pos, registerExtra.toShort())
+            true
+        } else {
+            false
+        }
+    }
+    val registerRange : Boolean
+        get() {
+            val o = __offset(26)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
+    fun mutateRegisterRange(registerRange: Boolean) : Boolean {
+        val o = __offset(26)
+        return if (o != 0) {
+            bb.put(o + bb_pos, (if(registerRange) 1 else 0).toByte())
+            true
+        } else {
+            false
+        }
+    }
     companion object {
         fun validateVersion() = Constants.FLATBUFFERS_23_5_26()
         fun getRootAsInstructionMeta(_bb: ByteBuffer): `-InstructionMeta` = getRootAsInstructionMeta(_bb, `-InstructionMeta`())
@@ -129,8 +185,9 @@ internal class `-InstructionMeta` : Table() {
             _bb.order(ByteOrder.LITTLE_ENDIAN)
             return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
         }
-        fun createInstructionMeta(builder: FlatBufferBuilder, index: UInt, opcode: Int, operandType: Byte, methodRefOffset: Int, fieldRefOffset: Int, classRefOffset: Int, stringValueOffset: Int, literalValue: Long) : Int {
-            builder.startTable(8)
+        fun createInstructionMeta(builder: FlatBufferBuilder, index: UInt, opcode: Int, operandType: Byte, methodRefOffset: Int, fieldRefOffset: Int, classRefOffset: Int, stringValueOffset: Int, literalValue: Long, registerCount: UByte, registersPacked: Long, registerExtra: UShort, registerRange: Boolean) : Int {
+            builder.startTable(12)
+            addRegistersPacked(builder, registersPacked)
             addLiteralValue(builder, literalValue)
             addStringValue(builder, stringValueOffset)
             addClassRef(builder, classRefOffset)
@@ -138,10 +195,13 @@ internal class `-InstructionMeta` : Table() {
             addMethodRef(builder, methodRefOffset)
             addOpcode(builder, opcode)
             addIndex(builder, index)
+            addRegisterExtra(builder, registerExtra)
+            addRegisterRange(builder, registerRange)
+            addRegisterCount(builder, registerCount)
             addOperandType(builder, operandType)
             return endInstructionMeta(builder)
         }
-        fun startInstructionMeta(builder: FlatBufferBuilder) = builder.startTable(8)
+        fun startInstructionMeta(builder: FlatBufferBuilder) = builder.startTable(12)
         fun addIndex(builder: FlatBufferBuilder, index: UInt) = builder.addInt(0, index.toInt(), 0)
         fun addOpcode(builder: FlatBufferBuilder, opcode: Int) = builder.addInt(1, opcode, 0)
         fun addOperandType(builder: FlatBufferBuilder, operandType: Byte) = builder.addByte(2, operandType, 0)
@@ -150,6 +210,10 @@ internal class `-InstructionMeta` : Table() {
         fun addClassRef(builder: FlatBufferBuilder, classRef: Int) = builder.addOffset(5, classRef, 0)
         fun addStringValue(builder: FlatBufferBuilder, stringValue: Int) = builder.addOffset(6, stringValue, 0)
         fun addLiteralValue(builder: FlatBufferBuilder, literalValue: Long) = builder.addLong(7, literalValue, 0L)
+        fun addRegisterCount(builder: FlatBufferBuilder, registerCount: UByte) = builder.addByte(8, registerCount.toByte(), 0)
+        fun addRegistersPacked(builder: FlatBufferBuilder, registersPacked: Long) = builder.addLong(9, registersPacked, 0L)
+        fun addRegisterExtra(builder: FlatBufferBuilder, registerExtra: UShort) = builder.addShort(10, registerExtra.toShort(), 0)
+        fun addRegisterRange(builder: FlatBufferBuilder, registerRange: Boolean) = builder.addBoolean(11, registerRange, false)
         fun endInstructionMeta(builder: FlatBufferBuilder) : Int {
             val o = builder.endTable()
             return o
