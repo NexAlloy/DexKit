@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -28,6 +29,8 @@
 #include "schema/results_generated.h"
 
 namespace dexkit {
+
+class DexItem;
 
 class ClassBean {
 public:
@@ -86,6 +89,24 @@ public:
 public:
     flatbuffers::Offset<schema::UsingFieldMeta>
     CreateUsingFieldMeta(flatbuffers::FlatBufferBuilder &fbb) const;
+};
+
+class InstructionBean {
+public:
+    uint32_t index = 0;
+    uint8_t opcode = 0;
+    uint8_t register_count = 0;
+    uint64_t registers_packed = 0;
+    uint16_t register_extra = 0;
+    bool register_range = false;
+    schema::OperandType operand_type = schema::OperandType::None;
+    uint32_t operand_index = 0;
+    std::string_view string_value;
+    int64_t literal_value = 0;
+
+public:
+    flatbuffers::Offset<schema::InstructionMeta>
+    CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb, DexItem &dex_item) const;
 };
 
 class AnnotationBean;

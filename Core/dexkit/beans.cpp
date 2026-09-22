@@ -19,6 +19,7 @@
 // <https://github.com/LuckyPray/DexKit/blob/master/LICENSE>.
 
 #include "beans.h"
+#include "dex_item.h"
 
 namespace dexkit {
 
@@ -83,6 +84,49 @@ UsingFieldBean::CreateUsingFieldMeta(flatbuffers::FlatBufferBuilder &fbb) const 
     );
     fbb.Finish(using_field_meta);
     return using_field_meta;
+}
+
+flatbuffers::Offset<schema::InstructionMeta>
+InstructionBean::CreateInstructionMeta(flatbuffers::FlatBufferBuilder &fbb, DexItem &dex_item) const {
+    flatbuffers::Offset<schema::MethodMeta> method_offset = 0;
+    flatbuffers::Offset<schema::FieldMeta> field_offset = 0;
+    flatbuffers::Offset<schema::ClassMeta> class_offset = 0;
+    flatbuffers::Offset<flatbuffers::String> string_offset = 0;
+
+    switch (this->operand_type) {
+        case schema::OperandType::MethodRef:
+            method_offset = dex_item.GetMethodBean(operand_index).CreateMethodMeta(fbb);
+            break;
+        case schema::OperandType::FieldRef:
+            field_offset = dex_item.GetFieldBean(operand_index).CreateFieldMeta(fbb);
+            break;
+        case schema::OperandType::ClassRef:
+            class_offset = dex_item.GetClassBean(operand_index).CreateClassMeta(fbb);
+            break;
+        case schema::OperandType::String:
+            string_offset = fbb.CreateString(this->string_value);
+            break;
+        default:
+            break;
+    }
+
+    auto instruction_meta = schema::CreateInstructionMeta(
+            fbb,
+            this->index,
+            this->opcode,
+            this->operand_type,
+            method_offset,
+            field_offset,
+            class_offset,
+            string_offset,
+            this->literal_value,
+            this->register_count,
+            static_cast<int64_t>(this->registers_packed),
+            this->register_extra,
+            this->register_range
+    );
+    fbb.Finish(instruction_meta);
+    return instruction_meta;
 }
 
 flatbuffers::Offset<schema::AnnotationEncodeValueMeta> // NOLINTNEXTLINE

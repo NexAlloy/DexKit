@@ -135,3 +135,22 @@ struct UsingNumberMeta {
 table UsingNumberMetaArrayHolder {
     items: [UsingNumberMeta];
 }
+
+table InstructionMeta {
+    index: uint32;
+    opcode: int;
+    operand_type: OperandType;
+    method_ref: MethodMeta;
+    field_ref: FieldMeta;
+    class_ref: ClassMeta;
+    string_value: string;
+    literal_value: long;
+    register_count: uint8;
+    registers_packed: long;
+    register_extra: uint16;
+    register_range: bool;
+}
+
+table InstructionMetaArrayHolder {
+    items: [InstructionMeta];
+}

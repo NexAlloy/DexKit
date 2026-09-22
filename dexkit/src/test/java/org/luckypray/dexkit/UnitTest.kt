@@ -1157,6 +1157,73 @@ class UnitTest {
     }
 
     @Test
+    fun testGetMethodInstructions() {
+        val res = bridge.getMethodData(
+            "Lorg/luckypray/dexkit/demo/PlayActivity;->onCreate(Landroid/os/Bundle;)V"
+        )
+        assert(res != null)
+        val instructions = res!!.instructions
+        println("Instructions count: ${instructions.size}")
+        instructions.forEach { ins ->
+            println("[${ins.index}] op=0x${ins.opcode.toString(16)}" +
+                    (if (ins.registerCount > 0) " registers=${ins.registers}" else "") +
+                    (ins.methodRef?.let { " method=${it.descriptor}" } ?: "") +
+                    (ins.fieldRef?.let { " field=${it.descriptor}" } ?: "") +
+                    (ins.classRef?.let { " class=${it.name}" } ?: "") +
+                    (ins.string?.let { " str=\"$it\"" } ?: "") +
+                    (ins.literal?.let { " lit=$it" } ?: ""))
+        }
+        assert(instructions.isNotEmpty())
+        // All instructions returned, should match opCodes count
+        assert(instructions.size == res.opCodes.size) {
+            "instructions.size(${instructions.size}) != opCodes.size(${res.opCodes.size})"
+        }
+        // Indices must be contiguous 0..n-1
+        instructions.forEachIndexed { i, ins ->
+            assert(ins.index == i) { "Expected index $i but got ${ins.index}" }
+        }
+        // Verify string operands include known strings
+        assert(instructions.any { it.string == "PlayActivity" })
+        // Instructions with operands have exactly one; others have none
+        instructions.forEach { ins ->
+            val nonNullCount = listOfNotNull(
+                ins.methodRef, ins.fieldRef, ins.classRef, ins.string, ins.literal
+            ).size
+            assert(nonNullCount <= 1) {
+                "Instruction at index ${ins.index} has $nonNullCount operands, expected 0 or 1"
+            }
+        }
+        // Some instructions should have no operand (e.g. move, return)
+        assert(instructions.any { ins ->
+            ins.methodRef == null && ins.fieldRef == null && ins.classRef == null
+                    && ins.string == null && ins.literal == null
+        }) { "Expected some instructions without operands" }
+    }
+
+    @Test
+    fun testGetMethodInstructionsBinopLiteral() {
+        val res = bridge.getMethodData(
+            "Lorg/luckypray/dexkit/demo/RandomUtil;->getLiteralBinop(I)I"
+        )
+        assert(res != null)
+        val literalBinops = res!!.instructions.filter { it.opcode in 0xd0..0xe2 }
+        assert(literalBinops.any { it.opcode in 0xd0..0xd7 && it.literal == 30000L }) {
+            "Expected binop/lit16 literal 30000 in RandomUtil.getLiteralBinop"
+        }
+        assert(literalBinops.any { it.opcode in 0xd8..0xe2 && it.literal == -7L }) {
+            "Expected binop/lit8 literal -7 in RandomUtil.getLiteralBinop"
+        }
+        literalBinops.forEach { ins ->
+            assert(ins.literal != null) {
+                "Expected literal for binop/lit opcode 0x${ins.opcode.toString(16)} at index ${ins.index}"
+            }
+        }
+        assert(res.instructions.any { it.opcode == 0x0f && it.singleRegisterOrNull != null }) {
+            "Expected return instruction with one register"
+        }
+    }
+
+    @Test
     fun testLazyMetadataMatchesFullCacheIncludingEmptyMethods() {
         DexKitBridge.create(demoApkPath).use { target ->
             val token = getBridgeToken(target)
@@ -1322,5 +1389,29 @@ class UnitTest {
                 executor.shutdownNow()
             }
         }
+    }
+
+    @Test
+    fun testGetMethodInstructionRegisters() {
+        val fixed = bridge.getMethodData(
+            "Lorg/luckypray/dexkit/demo/RandomUtil;->callSumFive(IIIII)I"
+        )!!.instructions.single { it.opcode == 0x71 }
+        assert(fixed.registerCount == 5) {
+            "Expected five registers for invoke-static, got ${fixed.registers}"
+        }
+        assert(fixed.registers.distinct().size == 5)
+        assert(fixed.methodRef?.name == "sumFive")
+
+        val range = bridge.getMethodData(
+            "Lorg/luckypray/dexkit/demo/RandomUtil;->callSumSix(IIIIII)I"
+        )!!.instructions.single { it.opcode == 0x77 }
+        assert(range.registerCount == 6) {
+            "Expected six registers for invoke-static/range, got ${range.registers}"
+        }
+        assert(range.registers.zipWithNext().all { (current, next) -> next == current + 1 }) {
+            "Expected consecutive range registers, got ${range.registers}"
+        }
+        assert(range.registerOrNull(6) == null)
+        assert(range.methodRef?.name == "sumSix")
     }
 }
