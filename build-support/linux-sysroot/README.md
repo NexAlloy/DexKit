@@ -14,6 +14,19 @@ Run the commands from the repository root. `build-linux-sysroot.sh` must run as
 root because `debootstrap` creates device nodes and package metadata inside the
 sysroot. If a sysroot or headers directory already exists, remove it first.
 
+The scripts default to `UBUNTU_ARCH=amd64`. For native arm64 builds, run both
+scripts on an arm64 host with `UBUNTU_ARCH=arm64` (pass it through `sudo env`
+for `build-linux-sysroot.sh`). This selects the Ubuntu ports mirror and
+`aarch64-linux-gnu` headers; `UBUNTU_MIRROR` can override the mirror. Use separate
+sysroot and headers directories for each architecture, and replace
+`x86_64-linux-gnu` with `aarch64-linux-gnu` in the compiler flags below.
+For the Ubuntu 16.04 arm64 target, also add `-mno-outline-atomics` to both
+`CFLAGS` and `CXXFLAGS` because its GCC 5 libgcc lacks outline atomic helpers.
+
+The native build workflow builds both architectures against Ubuntu 16.04,
+caches each architecture separately, and packages the libraries as
+`native/linux-x64/libdexkit.so` and `native/linux-arm64/libdexkit.so`.
+
 ## Pack sysroot backups
 
 After building a sysroot, it can be packed for backup or reuse. Replace the

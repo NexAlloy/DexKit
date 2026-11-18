@@ -11,6 +11,19 @@ output_path="$1"
 ubuntu_mirror="${UBUNTU_MIRROR:-https://archive.ubuntu.com/ubuntu/}"
 ubuntu_codename="${UBUNTU_CODENAME:-focal}"
 ubuntu_arch="${UBUNTU_ARCH:-amd64}"
+case "$ubuntu_arch" in
+    amd64)
+        ubuntu_multiarch=x86_64-linux-gnu
+        ;;
+    arm64)
+        ubuntu_multiarch=aarch64-linux-gnu
+        ubuntu_mirror="${UBUNTU_MIRROR:-https://ports.ubuntu.com/ubuntu-ports/}"
+        ;;
+    *)
+        echo "error: unsupported Ubuntu architecture: $ubuntu_arch" >&2
+        exit 2
+        ;;
+esac
 ubuntu_components="${UBUNTU_COMPONENTS:-main universe}"
 package_name="${UBUNTU_LIBSTDCXX_DEV_PACKAGE:-libstdc++-10-dev}"
 
@@ -93,7 +106,7 @@ mkdir -p "$output_path"
 dpkg-deb -x "$tmpdir/$package_name.deb" "$output_path"
 
 if [ ! -d "$output_path/usr/include/c++/10" ] || \
-   [ ! -d "$output_path/usr/include/x86_64-linux-gnu/c++/10" ]; then
+   [ ! -d "$output_path/usr/include/$ubuntu_multiarch/c++/10" ]; then
     echo "error: $package_name did not provide the expected GCC 10 headers" >&2
     exit 1
 fi

@@ -2,9 +2,7 @@ name: Build DexKit Native Libraries
 
 env:
   LINUX_CODENAME: xenial
-  LINUX_SYSROOT_PATH: .dexkit-sysroot/ubuntu-16.04-x86_64
-  LINUX_GCC10_HEADERS_PATH: .dexkit-sysroot/gcc10-headers
-  LINUX_SYSROOT_CACHE_KEY_PREFIX: dexkit-linux-amd64-sysroot-v1
+  LINUX_SYSROOT_CACHE_KEY_PREFIX: dexkit-linux-sysroot-v1
 
 on:
   push:
@@ -18,13 +16,26 @@ jobs:
     strategy:
       matrix:
         sys:
-          - { name: linux,   os: ubuntu-latest,  shell: bash}
+          - name: linux-x64
+            os: ubuntu-latest
+            shell: bash
+            arch: amd64
+            triple: x86_64-linux-gnu
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+            shell: bash
+            arch: arm64
+            triple: aarch64-linux-gnu
           - { name: windows, os: windows-latest, shell: bash}
           - { name: macos,   os: macos-latest,   shell: bash}
     defaults:
       run:
         shell: ${{ matrix.sys.shell }}
     runs-on: ${{ matrix.sys.os }}
+    env:
+      UBUNTU_ARCH: ${{ matrix.sys.arch }}
+      LINUX_SYSROOT_PATH: .dexkit-sysroot/ubuntu-16.04-${{ matrix.sys.arch }}
+      LINUX_GCC10_HEADERS_PATH: .dexkit-sysroot/gcc10-headers-${{ matrix.sys.arch }}
 
     steps:
       - name: Checkout repo
@@ -36,35 +47,41 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v1
+      - name: Setup Android SDK (Linux arm64)
+        if: ${{ matrix.sys.name == 'linux-arm64' }}
+        uses: android-actions/setup-android@v4
         with:
-          version: 3.25.0
+          packages: 'platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125'
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: 3.25.0
 
       - name: Install Linux build tools
-        if: ${{ matrix.sys.name == 'linux' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y clang lld ninja-build binutils xz-utils
 
       - name: Restore target Linux sysroot cache
-        if: ${{ matrix.sys.name == 'linux' }}
+        if: ${{ runner.os == 'Linux' }}
         id: cache_linux_sysroot
         uses: actions/cache@v4
         with:
           path: ${{ env.LINUX_SYSROOT_PATH }}.tar.xz
-          key: ${{ env.LINUX_SYSROOT_CACHE_KEY_PREFIX }}-${{ env.LINUX_CODENAME }}-${{ hashFiles('build-support/linux-sysroot/**') }}
+          key: ${{ env.LINUX_SYSROOT_CACHE_KEY_PREFIX }}-${{ matrix.sys.arch }}-${{ env.LINUX_CODENAME }}-${{ hashFiles('build-support/linux-sysroot/**') }}
 
       - name: Restore GCC 10 headers cache
-        if: ${{ matrix.sys.name == 'linux' }}
+        if: ${{ runner.os == 'Linux' }}
         id: cache_linux_gcc10_headers
         uses: actions/cache@v4
         with:
           path: ${{ env.LINUX_GCC10_HEADERS_PATH }}.tar.xz
-          key: ${{ env.LINUX_SYSROOT_CACHE_KEY_PREFIX }}-gcc10-headers-${{ hashFiles('build-support/linux-sysroot/**') }}
+          key: ${{ env.LINUX_SYSROOT_CACHE_KEY_PREFIX }}-${{ matrix.sys.arch }}-gcc10-headers-${{ hashFiles('build-support/linux-sysroot/**') }}
 
       - name: Build missing Linux sysroot and GCC 10 headers
-        if: ${{ matrix.sys.name == 'linux' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           build_sysroot() {
             local codename="$1"
@@ -77,6 +94,7 @@ jobs:
             rm -rf "$path"
             sudo env \
               UBUNTU_CODENAME="$codename" \
+              UBUNTU_ARCH="$UBUNTU_ARCH" \
               bash build-support/linux-sysroot/build-linux-sysroot.sh "$path"
             sudo tar -C "$path" \
               --exclude=./dev \
@@ -108,7 +126,7 @@ jobs:
           build_gcc10_headers "$LINUX_GCC10_HEADERS_PATH"
 
       - name: Unpack Linux sysroot and GCC 10 headers
-        if: ${{ matrix.sys.name == 'linux' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           unpack_archive() {
             local path="$1"
@@ -121,7 +139,7 @@ jobs:
           unpack_archive "$LINUX_GCC10_HEADERS_PATH"
 
       - name: Prepare Linux compatibility headers
-        if: ${{ matrix.sys.name == 'linux' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           compat_dir="$GITHUB_WORKSPACE/.dexkit-sysroot/compat"
           target_sysroot="$GITHUB_WORKSPACE/$LINUX_SYSROOT_PATH"
@@ -137,7 +155,7 @@ jobs:
             > "$compat_dir/gcc5-thread-wrapper/future"
 
       - name: Run Gradle CMake build (linux)
-        if: ${{ matrix.sys.name == 'linux' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           chmod +x gradlew
 
@@ -145,15 +163,20 @@ jobs:
           gcc10_headers="$GITHUB_WORKSPACE/$LINUX_GCC10_HEADERS_PATH/usr/include"
           compat_dir="$GITHUB_WORKSPACE/.dexkit-sysroot/compat"
           compat_header="$compat_dir/glibc-libstdcxx10-compat.h"
-          cxxflags="-fno-exceptions -nostdinc++ -isystem $compat_dir/gcc5-thread-wrapper -isystem $gcc10_headers/c++/10 -isystem $gcc10_headers/x86_64-linux-gnu/c++/10 -include $compat_header"
+          cxxflags="-fno-exceptions -nostdinc++ -isystem $compat_dir/gcc5-thread-wrapper -isystem $gcc10_headers/c++/10 -isystem $gcc10_headers/${{ matrix.sys.triple }}/c++/10 -include $compat_header"
+          arch_flags=""
+          if [ "$UBUNTU_ARCH" = arm64 ]; then
+            # GCC 5 libgcc does not provide AArch64 outline atomics.
+            arch_flags="-mno-outline-atomics"
+          fi
 
           export CC="clang --sysroot=$sysroot --gcc-toolchain=$sysroot/usr"
           export CXX="clang++ --sysroot=$sysroot --gcc-toolchain=$sysroot/usr"
           export AR=llvm-ar
           export RANLIB=llvm-ranlib
           export LD=ld.lld
-          export CFLAGS=""
-          export CXXFLAGS="$cxxflags"
+          export CFLAGS="$arch_flags"
+          export CXXFLAGS="$arch_flags $cxxflags"
           export LDFLAGS="-Wl,--no-as-needed -lpthread"
 
           ./gradlew :dexkit:cmakeBuild --console=plain
@@ -174,8 +197,8 @@ jobs:
         run: |
           rm -rf artifacts
           if [ "${RUNNER_OS}" = "Linux" ]; then
-            mkdir -p artifacts/native/linux
-            cp dexkit/build/cmake/main/*/libdexkit.so artifacts/native/linux/
+            mkdir -p artifacts/native/${{ matrix.sys.name }}
+            cp dexkit/build/cmake/main/*/libdexkit.so artifacts/native/${{ matrix.sys.name }}/
           elif [ "${RUNNER_OS}" = "Windows" ]; then
             mkdir -p artifacts/native/windows
             cp dexkit/build/cmake/main/*/libdexkit.dll artifacts/native/windows/
@@ -213,7 +236,8 @@ jobs:
           test -f $PACKAGE_ROOT/jvm/dexkit-sources.jar
           test -f $PACKAGE_ROOT/android/dexkit-android.aar
           test -f $PACKAGE_ROOT/android/dexkit-android-sources.jar
-          test -f $PACKAGE_ROOT/native/linux/libdexkit.so
+          test -f $PACKAGE_ROOT/native/linux-x64/libdexkit.so
+          test -f $PACKAGE_ROOT/native/linux-arm64/libdexkit.so
           test -f $PACKAGE_ROOT/native/macos/libdexkit.dylib
           test -f $PACKAGE_ROOT/native/windows/libdexkit.dll
 

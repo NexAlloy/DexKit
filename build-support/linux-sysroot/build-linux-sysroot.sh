@@ -8,7 +8,11 @@ if [ "$#" -ne 1 ]; then
 fi
 
 __SysrootDir="$1"
+__UbuntuArch="${UBUNTU_ARCH:-amd64}"
 __UbuntuRepo="${UBUNTU_MIRROR:-http://archive.ubuntu.com/ubuntu/}"
+if [ "$__UbuntuArch" = arm64 ]; then
+    __UbuntuRepo="${UBUNTU_MIRROR:-http://ports.ubuntu.com/ubuntu-ports/}"
+fi
 __CodeName="${UBUNTU_CODENAME:-focal}"
 __Components="${UBUNTU_COMPONENTS:-main universe}"
 
@@ -44,7 +48,7 @@ debootstrap \
     --variant=minbase \
     --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg \
     --force-check-gpg \
-    --arch amd64 \
+    --arch "$__UbuntuArch" \
     "$__CodeName" \
     "$__SysrootDir" \
     "$__UbuntuRepo"
